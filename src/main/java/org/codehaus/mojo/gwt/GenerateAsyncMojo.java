@@ -131,6 +131,7 @@ public class GenerateAsyncMojo
         }
 
         setupGenerateDirectory();
+        setupGenerateTestDirectory();
 
         if ( encoding == null )
         {
@@ -145,7 +146,23 @@ public class GenerateAsyncMojo
         {
             try
             {
-                scanAndGenerateAsync( new File( sourceRoot ), builder );
+                scanAndGenerateAsync(getGenerateDirectory(), new File( sourceRoot ), builder );
+            }
+            catch ( Throwable e )
+            {
+                getLog().error( "Failed to generate Async interface", e );
+                if ( failOnError )
+                {
+                    throw new MojoExecutionException( "Failed to generate Async interface", e );
+                }
+            }
+        }
+        List<String> testSourceRoots = getProject().getTestCompileSourceRoots();
+        for ( String testSourceRoot : testSourceRoots )
+        {
+            try
+            {
+                scanAndGenerateAsync(getGenerateTestDirectory(), new File( testSourceRoot ), builder );
             }
             catch ( Throwable e )
             {
@@ -163,7 +180,7 @@ public class GenerateAsyncMojo
      * @return true if some file have been generated
      * @throws Exception generation failure
      */
-    private boolean scanAndGenerateAsync( File sourceRoot, JavaDocBuilder builder )
+    private boolean scanAndGenerateAsync( File targetDirectory, File sourceRoot, JavaDocBuilder builder )
         throws Exception
     {
         Scanner scanner = buildContext.newScanner( sourceRoot );
@@ -178,7 +195,7 @@ public class GenerateAsyncMojo
         for ( String source : sources )
         {
             File sourceFile = new File( sourceRoot, source );
-            File targetFile = getTargetFile( source );
+            File targetFile = getTargetFile( targetDirectory, source );
             if ( !force && buildContext.isUptodate( targetFile, sourceFile ) )
             {
                 getLog().debug( targetFile.getAbsolutePath() + " is up to date. Generation skipped" );
@@ -200,10 +217,10 @@ public class GenerateAsyncMojo
         return fileGenerated;
     }
 
-    private File getTargetFile( String source )
+    private File getTargetFile( File targetDirectory, String source )
     {
         String targetFileName = source.substring( 0, source.length() - 5 ) + "Async.java";
-        File targetFile = new File( getGenerateDirectory(), targetFileName );
+        File targetFile = new File( targetDirectory, targetFileName );
         return targetFile;
     }
 
@@ -355,6 +372,10 @@ public class GenerateAsyncMojo
         builder.setEncoding( encoding );
         builder.getClassLibrary().addClassLoader( getProjectClassLoader() );
         for ( String sourceRoot : getProject().getCompileSourceRoots() )
+        {
+            builder.getClassLibrary().addSourceFolder( new File( sourceRoot ) );
+        }
+        for ( String sourceRoot : getProject().getTestCompileSourceRoots() )
         {
             builder.getClassLibrary().addSourceFolder( new File( sourceRoot ) );
         }
